@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
@@ -8,21 +9,27 @@ import { PageLoader } from '@/components/ui/Loader';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { StatusBadge } from '@/components/ui/Badge';
 import { getErrorMessage } from '@/lib/api/client';
-import { resolveIdToName, resolveSubjectId, resolveToIds } from '@/lib/utils/resolveIds';
+import {
+  resolveIdToName,
+  resolveSubjectId,
+  resolveToIds,
+  sanitizeTopicName,
+} from '@/lib/utils/resolveIds';
 import { useSubjects, useTopics, useMultiSubTopics } from '@/hooks/useSubjects';
 import {
   useBulkCreateQuestions,
   useDeleteQuestion,
   useFetchBulkQuestions,
   useUpdateQuestion,
+  questionKeys,
 } from '@/hooks/useQuestions';
-import { useTest, useUpdateTest } from '@/hooks/useTests';
+import { useTest, useUpdateTest, testKeys } from '@/hooks/useTests';
 import { useQuestionDraftStore } from '@/stores/questionDraftStore';
 import { QuestionForm } from '../components/QuestionForm';
 import { QuestionList } from '../components/QuestionList';
 import { CsvUploadPanel } from '../components/CsvUploadPanel';
 import type { QuestionFormValues } from '../schemas/questionSchema';
-import type { LocalQuestion } from '@/types/question';
+import type { LocalQuestion, Question } from '@/types/question';
 
 
 function generateLocalId(): string {
@@ -32,6 +39,7 @@ function generateLocalId(): string {
 export function QuestionsPage() {
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: test, isLoading, isError, error } = useTest(testId);
   const { data: subjects = [] } = useSubjects();
@@ -79,10 +87,37 @@ export function QuestionsPage() {
     label: st.name,
   }));
 
-  const toQuestionApiFields = (question: LocalQuestion) => ({
-    topic: resolveIdToName(question.topic, topics),
-    sub_topic: resolveIdToName(question.sub_topic, subTopics),
+  const allowedTopicNames = useMemo(() => {
+    const fromOptions = topicOptions.map((o) => o.value);
+    const fromTest = test?.topics ?? [];
+    return [...new Set([...fromOptions, ...fromTest])];
+  }, [topicOptions, test?.topics]);
+
+  const allowedSubTopicNames = useMemo(() => {
+    const fromOptions = subTopicOptions.map((o) => o.value);
+    const fromTest = test?.sub_topics ?? [];
+    return [...new Set([...fromOptions, ...fromTest])];
+  }, [subTopicOptions, test?.sub_topics]);
+
+  const normalizeQuestionTopics = (values: {
+    topic?: string;
+    sub_topic?: string;
+  }) => ({
+    topic:
+      sanitizeTopicName(resolveIdToName(values.topic, topics) ?? values.topic, allowedTopicNames) ??
+      undefined,
+    sub_topic:
+      sanitizeTopicName(
+        resolveIdToName(values.sub_topic, subTopics) ?? values.sub_topic,
+        allowedSubTopicNames,
+      ) ?? undefined,
   });
+
+  const toQuestionApiFields = (question: LocalQuestion) =>
+    normalizeQuestionTopics({
+      topic: question.topic,
+      sub_topic: question.sub_topic,
+    });
 
   useEffect(() => {
     clearQuestions();
@@ -90,29 +125,33 @@ export function QuestionsPage() {
 
   useEffect(() => {
     if (!existingQuestions || existingQuestions.length === 0) return;
-    if (questions.length > 0) return;
 
-    const mapped: LocalQuestion[] = existingQuestions.map((q) => ({
-      localId: generateLocalId(),
-      serverId: q.id,
-      type: q.type,
-      question: q.question,
-      option1: q.option1,
-      option2: q.option2,
-      option3: q.option3,
-      option4: q.option4,
-      correct_option: q.correct_option,
-      explanation: q.explanation ?? undefined,
-      difficulty: q.difficulty ?? undefined,
-      topic: q.topic ?? undefined,
-      sub_topic: q.sub_topic ?? undefined,
-      media_url: q.media_url ?? undefined,
-      test_id: testId!,
-      subject: subjectId,
-    }));
+    setQuestions((current) => {
+      if (current.some((q) => !q.serverId)) return current;
 
-    setQuestions(mapped);
-  }, [existingQuestions, questions.length, setQuestions, testId, subjectId]);
+      return existingQuestions.map((q) => {
+        const previous = current.find((item) => item.serverId === q.id);
+        return {
+          localId: previous?.localId ?? generateLocalId(),
+          serverId: q.id,
+          type: q.type,
+          question: q.question,
+          option1: q.option1,
+          option2: q.option2,
+          option3: q.option3,
+          option4: q.option4,
+          correct_option: q.correct_option,
+          explanation: q.explanation ?? undefined,
+          difficulty: q.difficulty ?? undefined,
+          topic: q.topic ?? undefined,
+          sub_topic: q.sub_topic ?? undefined,
+          media_url: q.media_url ?? previous?.media_url ?? undefined,
+          test_id: testId!,
+          subject: subjectId,
+        };
+      });
+    });
+  }, [existingQuestions, setQuestions, testId, subjectId]);
 
   const handleAddQuestion = (values: QuestionFormValues) => {
     if (!testId || !subjectId) return;
@@ -123,9 +162,8 @@ export function QuestionsPage() {
       test_id: testId,
       subject: subjectId,
       ...values,
-      topic: resolveIdToName(values.topic, topics) ?? values.topic,
-      sub_topic: resolveIdToName(values.sub_topic, subTopics) ?? values.sub_topic,
-      media_url: values.media_url || undefined,
+      ...normalizeQuestionTopics(values),
+      media_url: values.media_url?.trim() || undefined,
     };
 
     addQuestion(newQuestion);
@@ -138,9 +176,8 @@ export function QuestionsPage() {
     const updated: LocalQuestion = {
       ...editingQuestion,
       ...values,
-      topic: resolveIdToName(values.topic, topics) ?? values.topic,
-      sub_topic: resolveIdToName(values.sub_topic, subTopics) ?? values.sub_topic,
-      media_url: values.media_url || undefined,
+      ...normalizeQuestionTopics(values),
+      media_url: values.media_url?.trim() || undefined,
     };
 
     updateQuestionLocal(editingQuestion.localId, updated);
@@ -162,19 +199,33 @@ export function QuestionsPage() {
   const handleCsvImport = (rows: QuestionFormValues[]) => {
     if (!testId || !subjectId) return;
 
+    let strippedTopics = 0;
+
     rows.forEach((values) => {
+      const rawTopic = values.topic?.trim();
+      const rawSubTopic = values.sub_topic?.trim();
+      const normalized = normalizeQuestionTopics(values);
+
+      if (rawTopic && !normalized.topic) strippedTopics += 1;
+      if (rawSubTopic && !normalized.sub_topic) strippedTopics += 1;
+
       const newQuestion: LocalQuestion = {
         localId: generateLocalId(),
         type: 'mcq',
         test_id: testId,
         subject: subjectId,
         ...values,
-        topic: resolveIdToName(values.topic, topics) ?? values.topic,
-        sub_topic: resolveIdToName(values.sub_topic, subTopics) ?? values.sub_topic,
-        media_url: values.media_url || undefined,
+        ...normalized,
+        media_url: values.media_url?.trim() || undefined,
       };
       addQuestion(newQuestion);
     });
+
+    if (strippedTopics > 0) {
+      toast.warning(
+        'Some CSV topic/sub-topic values were ignored. Use names from your test dropdowns or leave those columns empty.',
+      );
+    }
   };
 
   const handleSaveAndContinue = async () => {
@@ -258,6 +309,33 @@ export function QuestionsPage() {
         suppressToast: true,
       });
 
+      let createdIdx = 0;
+      const cachedQuestions: Question[] = questions.map((q) => {
+        const id = q.serverId ?? createdIds[createdIdx++]!;
+        return {
+          id,
+          type: q.type,
+          question: q.question,
+          option1: q.option1,
+          option2: q.option2,
+          option3: q.option3,
+          option4: q.option4,
+          correct_option: q.correct_option,
+          explanation: q.explanation ?? null,
+          difficulty: q.difficulty ?? null,
+          paragraph: null,
+          media_url: q.media_url ?? null,
+          test_id: testId,
+          subject: subjectId,
+          topic: toQuestionApiFields(q).topic ?? null,
+          sub_topic: toQuestionApiFields(q).sub_topic ?? null,
+          category: null,
+        };
+      });
+
+      queryClient.setQueryData(questionKeys.bulk(allQuestionIds), cachedQuestions);
+      void queryClient.invalidateQueries({ queryKey: testKeys.detail(testId) });
+
       toast.success('Questions saved successfully');
       navigate(`/tests/${testId}/preview`);
     } catch (err) {
@@ -266,6 +344,23 @@ export function QuestionsPage() {
       setIsSaving(false);
     }
   };
+
+  const editingInitialValues = useMemo((): QuestionFormValues | undefined => {
+    if (!editingQuestion) return undefined;
+    return {
+      question: editingQuestion.question,
+      option1: editingQuestion.option1,
+      option2: editingQuestion.option2,
+      option3: editingQuestion.option3,
+      option4: editingQuestion.option4,
+      correct_option: editingQuestion.correct_option,
+      explanation: editingQuestion.explanation,
+      difficulty: editingQuestion.difficulty,
+      topic: editingQuestion.topic,
+      sub_topic: editingQuestion.sub_topic,
+      media_url: editingQuestion.media_url ?? '',
+    };
+  }, [editingQuestion]);
 
   if (isLoading) return <PageLoader />;
   if (isError || !test) {
@@ -326,23 +421,7 @@ export function QuestionsPage() {
               subTopicOptions={subTopicOptions}
               onSubmit={editingQuestion ? handleEditQuestion : handleAddQuestion}
               onCancel={editingQuestion ? () => setEditingQuestion(null) : undefined}
-              initialValues={
-                editingQuestion
-                  ? {
-                      question: editingQuestion.question,
-                      option1: editingQuestion.option1,
-                      option2: editingQuestion.option2,
-                      option3: editingQuestion.option3,
-                      option4: editingQuestion.option4,
-                      correct_option: editingQuestion.correct_option,
-                      explanation: editingQuestion.explanation,
-                      difficulty: editingQuestion.difficulty,
-                      topic: editingQuestion.topic,
-                      sub_topic: editingQuestion.sub_topic,
-                      media_url: editingQuestion.media_url ?? '',
-                    }
-                  : undefined
-              }
+              initialValues={editingInitialValues}
               submitLabel={editingQuestion ? 'Update Question' : 'Add Another Question'}
             />
           </div>

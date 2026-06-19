@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Download, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { parseQuestionsCsv } from '@/lib/utils/csvParse';
@@ -48,15 +48,10 @@ export function CsvUploadPanel({ onImport }: CsvUploadPanelProps) {
           <p className="text-sm font-medium text-slate-800">Upload questions via CSV</p>
           <p className="mt-1 text-xs text-slate-500">
             Columns: question, option1–4, correct_option (A/B/C/D or option1–4), optional
-            explanation, difficulty, topic, sub_topic, media_url
+            explanation, difficulty. Leave topic and sub_topic empty unless they match your test.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="/questions-template.csv" download>
-            <Button type="button" variant="outline" size="sm" leftIcon={<Download className="h-4 w-4" />}>
-              Download template
-            </Button>
-          </a>
           <Button
             type="button"
             size="sm"

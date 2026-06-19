@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
@@ -56,6 +57,10 @@ export function QuestionForm({
   });
 
   const mediaUrl = useWatch({ control, name: 'media_url' });
+
+  useEffect(() => {
+    reset(initialValues ?? defaultValues);
+  }, [initialValues, reset]);
 
   const handleFormSubmit = (values: QuestionFormValues) => {
     onSubmit(values);

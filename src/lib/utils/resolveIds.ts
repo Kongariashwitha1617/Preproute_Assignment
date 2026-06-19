@@ -42,3 +42,14 @@ export function resolveIdToName(
   if (byName) return byName.name;
   return value;
 }
+
+/** Keep only topic/sub_topic names the API accepts; drop unknown CSV values. */
+export function sanitizeTopicName(
+  value: string | undefined,
+  allowedNames: string[],
+): string | undefined {
+  if (!value?.trim() || allowedNames.length === 0) return undefined;
+  const normalized = value.trim().toLowerCase();
+  const match = allowedNames.find((name) => name.toLowerCase() === normalized);
+  return match;
+}
