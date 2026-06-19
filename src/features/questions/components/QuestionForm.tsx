@@ -1,10 +1,12 @@
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { CORRECT_OPTION_VALUES, DIFFICULTY_LEVELS } from '@/lib/constants';
 import { questionSchema, type QuestionFormValues } from '../schemas/questionSchema';
 import type { SelectOption } from '@/components/ui/Select';
@@ -53,6 +55,8 @@ export function QuestionForm({
     defaultValues: initialValues ?? defaultValues,
   });
 
+  const mediaUrl = useWatch({ control, name: 'media_url' });
+
   const handleFormSubmit = (values: QuestionFormValues) => {
     onSubmit(values);
     if (!initialValues) {
@@ -62,12 +66,19 @@ export function QuestionForm({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
-      <Textarea
-        label="Question Text"
-        placeholder="Enter the question"
-        required
-        error={errors.question?.message}
-        {...register('question')}
+      <Controller
+        name="question"
+        control={control}
+        render={({ field }) => (
+          <RichTextEditor
+            label="Question Text"
+            required
+            placeholder="Enter the question"
+            value={field.value}
+            onChange={field.onChange}
+            error={errors.question?.message}
+          />
+        )}
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -179,6 +190,7 @@ export function QuestionForm({
         error={errors.media_url?.message}
         {...register('media_url')}
       />
+      <QuestionMedia url={mediaUrl} />
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         {onCancel && (

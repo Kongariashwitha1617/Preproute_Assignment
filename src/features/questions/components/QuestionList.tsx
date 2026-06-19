@@ -1,8 +1,9 @@
 import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { QuestionContent } from '@/components/ui/QuestionContent';
+import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { CORRECT_OPTION_VALUES } from '@/lib/constants';
-import { stripHtml } from '@/lib/utils/format';
 import type { LocalQuestion } from '@/types/question';
 
 interface QuestionListProps {
@@ -34,15 +35,17 @@ export function QuestionList({ questions, onEdit, onDelete }: QuestionListProps)
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="mb-2 flex items-center gap-2">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
                   <Badge variant="info">Q{index + 1}</Badge>
                   {question.difficulty && (
                     <Badge variant="default">{question.difficulty}</Badge>
                   )}
+                  {question.topic && (
+                    <Badge variant="default">{question.topic}</Badge>
+                  )}
                 </div>
-                <p className="font-medium text-slate-900">
-                  {stripHtml(question.question)}
-                </p>
+                <QuestionContent html={question.question} />
+                <QuestionMedia url={question.media_url} />
                 <div className="mt-3 grid gap-1 sm:grid-cols-2">
                   <p className="text-sm text-slate-600">
                     <span className="font-medium">A:</span> {question.option1}

@@ -1,7 +1,10 @@
 import { z } from 'zod';
+import { stripHtml } from '@/lib/utils/format';
 
 export const questionSchema = z.object({
-  question: z.string().min(1, 'Question text is required'),
+  question: z
+    .string()
+    .refine((val) => stripHtml(val).trim().length > 0, 'Question text is required'),
   option1: z.string().min(1, 'Option A is required'),
   option2: z.string().min(1, 'Option B is required'),
   option3: z.string().min(1, 'Option C is required'),

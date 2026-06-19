@@ -11,7 +11,9 @@ import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { TEST_TYPES } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/api/client';
-import { formatDate, stripHtml } from '@/lib/utils/format';
+import { formatDate } from '@/lib/utils/format';
+import { QuestionContent } from '@/components/ui/QuestionContent';
+import { QuestionMedia } from '@/components/ui/QuestionMedia';
 import { computeScheduleExpiryIso } from '@/lib/utils/scheduleUtils';
 import { useFetchBulkQuestions } from '@/hooks/useQuestions';
 import { usePublishTest, useTest, useUpdateTest } from '@/hooks/useTests';
@@ -276,9 +278,8 @@ export function PreviewPage() {
                           <Badge variant="default">{question.difficulty}</Badge>
                         )}
                       </div>
-                      <p className="font-medium text-slate-900">
-                        {stripHtml(question.question)}
-                      </p>
+                      <QuestionContent html={question.question} />
+                      <QuestionMedia url={question.media_url} />
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         {options.map((option) => {
                           const isCorrect = question.correct_option === option.key;

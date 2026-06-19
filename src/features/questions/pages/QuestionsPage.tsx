@@ -20,6 +20,7 @@ import { useTest, useUpdateTest } from '@/hooks/useTests';
 import { useQuestionDraftStore } from '@/stores/questionDraftStore';
 import { QuestionForm } from '../components/QuestionForm';
 import { QuestionList } from '../components/QuestionList';
+import { CsvUploadPanel } from '../components/CsvUploadPanel';
 import type { QuestionFormValues } from '../schemas/questionSchema';
 import type { LocalQuestion } from '@/types/question';
 
@@ -158,6 +159,24 @@ export function QuestionsPage() {
     removeQuestion(localId);
   };
 
+  const handleCsvImport = (rows: QuestionFormValues[]) => {
+    if (!testId || !subjectId) return;
+
+    rows.forEach((values) => {
+      const newQuestion: LocalQuestion = {
+        localId: generateLocalId(),
+        type: 'mcq',
+        test_id: testId,
+        subject: subjectId,
+        ...values,
+        topic: resolveIdToName(values.topic, topics) ?? values.topic,
+        sub_topic: resolveIdToName(values.sub_topic, subTopics) ?? values.sub_topic,
+        media_url: values.media_url || undefined,
+      };
+      addQuestion(newQuestion);
+    });
+  };
+
   const handleSaveAndContinue = async () => {
     if (!testId || !subjectId) return;
 
@@ -288,6 +307,8 @@ export function QuestionsPage() {
             </div>
           </div>
         </div>
+
+        <CsvUploadPanel onImport={handleCsvImport} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="figma-card">

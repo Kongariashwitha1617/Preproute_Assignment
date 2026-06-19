@@ -45,4 +45,30 @@
   .figma-subtext {
     @apply text-sm text-[#64748B];
   }
+
+  .rich-text-editor:empty::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none text-[#94A3B8];
+  }
+
+  .rich-text-content ul {
+    @apply my-2 list-disc pl-5;
+  }
+
+  .rich-text-content ol {
+    @apply my-2 list-decimal pl-5;
+  }
+
+  .rich-text-content p {
+    @apply my-1;
+  }
+
+  .rich-text-content strong,
+  .rich-text-content b {
+    @apply font-semibold;
+  }
+
+  .rich-text-content u {
+    @apply underline;
+  }
 }
